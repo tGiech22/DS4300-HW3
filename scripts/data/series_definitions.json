@@ -1,0 +1,44 @@
+{
+  "fred": {
+    "UNRATE": {
+      "key": "unemployment_rate",
+      "name": "Unemployment Rate"
+    },
+    "CPIAUCSL": {
+      "key": "cpi_all_items",
+      "name": "Consumer Price Index for All Urban Consumers: All Items"
+    },
+    "FEDFUNDS": {
+      "key": "fed_funds_rate",
+      "name": "Effective Federal Funds Rate"
+    },
+    "T10Y2Y": {
+      "key": "yield_spread_10y_2y",
+      "name": "10-Year Treasury Constant Maturity Minus 2-Year"
+    }
+  },
+  "bls": {
+    "LNS14000000": {
+      "key": "unemployment_rate_bls",
+      "name": "Unemployment Rate"
+    },
+    "CES0000000001": {
+      "key": "total_nonfarm_payrolls",
+      "name": "All Employees, Total Nonfarm"
+    },
+    "LNS11300000": {
+      "key": "labor_force_participation_rate",
+      "name": "Labor Force Participation Rate"
+    }
+  },
+  "census": {
+    "B01001_001E": {
+      "key": "total_population",
+      "name": "Total Population"
+    },
+    "B19013_001E": {
+      "key": "median_household_income",
+      "name": "Median Household Income"
+    }
+  }
+}
