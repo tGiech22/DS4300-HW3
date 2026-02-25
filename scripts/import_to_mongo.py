@@ -21,8 +21,8 @@ except Exception:
     load_dotenv = None
 
 
-PRIMARY_PATH = Path("DS4300-HW3/data/macro_labor_us_monthly_1985_present.json")
-ALT_PATH = Path("scripts/DS4300-HW3/data/macro_labor_us_monthly_1985_present.json")
+PRIMARY_PATH = Path("data/macro_labor_us_monthly_1985_present.json")
+ALT_PATH = Path("scripts/data/macro_labor_us_monthly_1985_present.json")
 
 
 def parse_args() -> argparse.Namespace:
