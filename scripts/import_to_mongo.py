@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Import macro/labor JSON data into local MongoDB.
 
 Defaults:

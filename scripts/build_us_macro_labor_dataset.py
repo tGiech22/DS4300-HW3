@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
 """
 Build a monthly US macro + labor dataset (1985-present) using:
 - FRED API (macro series)
 - BLS API (labor series)
-- Census API (ACS1 national population + median household income; annual, forward-filled monthly)
+- Census API (ACS1 national population + median household income - annual, forward-filled monthly)
 
 Outputs: data/macro_labor_us_monthly_1985_present.json
 """
@@ -16,7 +15,7 @@ import urllib.parse
 import urllib.request
 from datetime import date
 
-# Optional .env loading
+# .env loading
 try:
     from dotenv import load_dotenv
 except Exception:
@@ -221,10 +220,9 @@ def main() -> int:
             bls_data[sid].update(series)
         year = chunk_end + 1
 
-    # Fetch Census ACS1 annual data (available from mid-2000s onward)
     census_data = fetch_census_acs1_us(census_key, [s["id"] for s in CENSUS_VARS], 2005, END_DATE.year)
 
-    # Assemble documents
+    # Assemble document
     docs = []
     for m in months:
         y = int(m[:4])
