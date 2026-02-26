@@ -8879,7 +8879,7 @@
       "unemployment_rate": null,
       "cpi_all_items": null,
       "fed_funds_rate": null,
-      "yield_spread_10y_2y": null
+      "yield_spread_10y_2y": 0.66
     },
     "bls": {
       "unemployment_rate_bls": null,
