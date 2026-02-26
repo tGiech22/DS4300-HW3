@@ -1,0 +1,82 @@
+DS4300 HW3
+Mongo Tutorial Queries
+
+To start any query, we first must navigate to the current database. The query is:
+use HW3
+Each query also starts with a common line:
+db.macro_labor
+This refers to the collection within the database that we wish to query. In our case, this is the “macro_labor” collection.
+
+Question 1:
+What is the most recent month in the dataset?
+
+Mongosh query:
+db.macro_labor
+| 	.find({}, { _id: 0, date: 1})
+| 	.sort({ date: -1 })
+| 	.limit(1)
+
+Expected output:
+[ { date: '2026-02-01' } ]
+
+New Functionality Explanation:
+- find(filter, options): finds matching documents based on parameters; “filter”: document selection filter; “projection”: returns specific field(s)
+- sort(filter): sorts outputs; “filter”: integer to determine order, 1 = ascending, -1 = descending
+- limit(int): limits number of outputs to “int”.
+
+Question 2:
+Which months had unemployment above 8%?
+
+Mongosh query:
+db.macro_labor.find(
+|   { "fred.unemployment_rate": { $gt: 8 } },
+|   { _id: 0, date: 1, "fred.unemployment_rate": 1 }
+| ).sort({ date: 1 })
+
+Expected output (first 10 results):
+[
+  { date: '2009-02-01', fred: { unemployment_rate: 8.3 } },
+  { date: '2009-03-01', fred: { unemployment_rate: 8.7 } },
+  { date: '2009-04-01', fred: { unemployment_rate: 9 } },
+  { date: '2009-05-01', fred: { unemployment_rate: 9.4 } },
+  { date: '2009-06-01', fred: { unemployment_rate: 9.5 } },
+  { date: '2009-07-01', fred: { unemployment_rate: 9.5 } },
+  { date: '2009-08-01', fred: { unemployment_rate: 9.6 } },
+  { date: '2009-09-01', fred: { unemployment_rate: 9.8 } },
+  { date: '2009-10-01', fred: { unemployment_rate: 10 } },
+  { date: '2009-11-01', fred: { unemployment_rate: 9.9 } }
+]
+
+New Functionality Explanation:
+- find filter ”document.field”: accesses a field within a document
+- filter operator ($gt): operator specifies for only documents with value > int.
+
+Question 3:
+What is the average unemployment rate across all recorded months?
+
+Mongosh query:
+db.macro_labor.aggregate([
+|   {
+|     $group: {
+|       _id: null,
+|       avg_unemployment: { $avg: "$fred.unemployment_rate" }
+|     }
+|   }
+| ])
+
+Expected output:
+[ { _id: null, avg_unemployment: 5.741056910569106 } ]
+
+New Functionality Explanation:
+- aggregate( [ { stage1 }, { stage2 } … ] ): aggregation pipeline to find summary statistics across multiple documents; in this case, and average of a specific subfield within documents.
+- aggregate operator ($group): Groups multiple documents together by specified field
+- _id: null: with a null id given, documents aren’t split into multiple groups but rather all documents are compiled into one group
+- aggregate operator ($avg): computes average of specified field across documents within the group
+
+Question #:
+
+Mongosh query:
+
+Expected output:
+
+New Functionality Explanation:
