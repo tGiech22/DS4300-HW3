@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -186,6 +187,174 @@ def fetch_census_acs1_us(api_key: str, series_ids: list[str], start_year: int, e
     return out
 
 
+def weighted_median(values: list[float], weights: list[float]) -> float | None:
+    if not values or not weights:
+        return None
+    pairs = sorted(zip(values, weights), key=lambda item: item[0])
+    total = sum(w for _, w in pairs)
+    if total <= 0:
+        return None
+    cutoff = total / 2.0
+    running = 0.0
+    for value, weight in pairs:
+        running += weight
+        if running >= cutoff:
+            return value
+    return pairs[-1][0]
+
+
+def fetch_cps_asec_median_household_income(
+    api_key: str, start_year: int, end_year: int
+) -> dict[int, float | None]:
+    out: dict[int, float | None] = {}
+    for year in range(start_year, end_year + 1):
+        url = f"https://api.census.gov/data/{year}/cps/asec/mar"
+        params = {
+            "get": "HTOTVAL,HSUP_WGT,A_LINENO",
+            "A_LINENO": "1",
+            "key": api_key,
+        }
+        try:
+            data = http_get_json(url, params)
+        except Exception:
+            continue
+        if not data or len(data) < 2:
+            continue
+        header = data[0]
+        idx = {name: i for i, name in enumerate(header)}
+        values: list[float] = []
+        weights: list[float] = []
+        for row in data[1:]:
+            value = parse_float(row[idx["HTOTVAL"]]) if "HTOTVAL" in idx else None
+            weight = parse_float(row[idx["HSUP_WGT"]]) if "HSUP_WGT" in idx else None
+            if value is None or weight is None or weight <= 0:
+                continue
+            values.append(value)
+            weights.append(weight)
+        out[year] = weighted_median(values, weights)
+    return out
+
+
+def extract_year_from_text(text: str) -> int | None:
+    match = re.search(r"(19|20)\\d{2}", text)
+    if not match:
+        return None
+    return int(match.group(0))
+
+
+def fetch_pep_us_population(api_key: str, start_year: int, end_year: int) -> dict[int, float | None]:
+    out: dict[int, float | None] = {}
+
+    # 1990-2000 intercensal: sum across ages for July 1 each year.
+    if end_year >= 1990 and start_year <= 2000:
+        url = "https://api.census.gov/data/1990/pep/int_natrespop"
+        for month in ("7", "07"):
+            params = {
+                "get": "YEAR,MONTH,TOT_POP,AGE",
+                "MONTH": month,
+                "key": api_key,
+            }
+            try:
+                data = http_get_json(url, params)
+            except Exception:
+                data = []
+            if data and len(data) > 1:
+                header = data[0]
+                idx = {name: i for i, name in enumerate(header)}
+                totals: dict[int, float] = {}
+                for row in data[1:]:
+                    year = row[idx["YEAR"]]
+                    total = parse_float(row[idx["TOT_POP"]]) if "TOT_POP" in idx else None
+                    if not year or total is None:
+                        continue
+                    y = int(year)
+                    if y < start_year or y > end_year:
+                        continue
+                    totals[y] = totals.get(y, 0.0) + total
+                out.update({y: totals.get(y) for y in totals})
+                break
+
+    # 2000-2010 intercensal: annual July 1 estimates.
+    if end_year >= 2000 and start_year <= 2010:
+        url = "https://api.census.gov/data/2000/pep/int_population"
+        params = {
+            "get": "DATE_DESC,POP",
+            "for": "us:1",
+            "key": api_key,
+        }
+        try:
+            data = http_get_json(url, params)
+        except Exception:
+            data = []
+        if data and len(data) > 1:
+            header = data[0]
+            idx = {name: i for i, name in enumerate(header)}
+            for row in data[1:]:
+                desc = row[idx["DATE_DESC"]] if "DATE_DESC" in idx else ""
+                if "July 1" not in desc:
+                    continue
+                year = extract_year_from_text(desc)
+                pop = parse_float(row[idx["POP"]]) if "POP" in idx else None
+                if year is None or pop is None:
+                    continue
+                if start_year <= year <= end_year:
+                    out[year] = pop
+
+    # 2010-2019 postcensal (vintage 2019): annual July 1 estimates.
+    if end_year >= 2010 and start_year <= 2019:
+        url = "https://api.census.gov/data/2019/pep/population"
+        params = {
+            "get": "DATE_DESC,POP",
+            "for": "us:1",
+            "key": api_key,
+        }
+        try:
+            data = http_get_json(url, params)
+        except Exception:
+            data = []
+        if data and len(data) > 1:
+            header = data[0]
+            idx = {name: i for i, name in enumerate(header)}
+            for row in data[1:]:
+                desc = row[idx["DATE_DESC"]] if "DATE_DESC" in idx else ""
+                if "July 1" not in desc:
+                    continue
+                year = extract_year_from_text(desc)
+                pop = parse_float(row[idx["POP"]]) if "POP" in idx else None
+                if year is None or pop is None:
+                    continue
+                if start_year <= year <= end_year:
+                    out[year] = pop
+
+    # 2020-2022 postcensal monthly (vintage 2021): use July 1.
+    if end_year >= 2020 and start_year <= 2022:
+        url = "https://api.census.gov/data/2021/pep/natmonthly"
+        params = {
+            "get": "MONTHLY_DESC,POP",
+            "for": "us:1",
+            "key": api_key,
+        }
+        try:
+            data = http_get_json(url, params)
+        except Exception:
+            data = []
+        if data and len(data) > 1:
+            header = data[0]
+            idx = {name: i for i, name in enumerate(header)}
+            for row in data[1:]:
+                desc = row[idx["MONTHLY_DESC"]] if "MONTHLY_DESC" in idx else ""
+                if "July 1" not in desc:
+                    continue
+                year = extract_year_from_text(desc)
+                pop = parse_float(row[idx["POP"]]) if "POP" in idx else None
+                if year is None or pop is None:
+                    continue
+                if start_year <= year <= end_year:
+                    out[year] = pop
+
+    return out
+
+
 # ---------- Build ----------
 
 def main() -> int:
@@ -220,7 +389,11 @@ def main() -> int:
             bls_data[sid].update(series)
         year = chunk_end + 1
 
-    census_data = fetch_census_acs1_us(census_key, [s["id"] for s in CENSUS_VARS], 2005, END_DATE.year)
+    acs_data = fetch_census_acs1_us(census_key, [s["id"] for s in CENSUS_VARS], 2005, END_DATE.year)
+    cps_income = fetch_cps_asec_median_household_income(
+        census_key, 1992, min(2004, END_DATE.year)
+    )
+    pep_population = fetch_pep_us_population(census_key, START_DATE.year, END_DATE.year)
 
     # Assemble document
     docs = []
@@ -231,8 +404,16 @@ def main() -> int:
             "fred": {s["key"]: fred_data[s["id"]].get(m) for s in FRED_SERIES},
             "bls": {s["key"]: bls_data[s["id"]].get(m) for s in BLS_SERIES},
             "census": {
-                s["key"]: census_data.get(y, {s["id"]: None for s in CENSUS_VARS}).get(s["id"])
-                for s in CENSUS_VARS
+                "total_population": (
+                    pep_population.get(y)
+                    if pep_population.get(y) is not None
+                    else acs_data.get(y, {}).get("B01001_001E")
+                ),
+                "median_household_income": (
+                    acs_data.get(y, {}).get("B19013_001E")
+                    if y >= 2005
+                    else cps_income.get(y)
+                ),
             },
         }
         docs.append(doc)
