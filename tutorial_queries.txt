@@ -1,18 +1,18 @@
 DS4300 HW3
 Mongo Tutorial Queries
 
-To start any query, we first must navigate to the current database. The query is:
+For our Mongo tutorial, we will be exploring the Federal Reserve, Census, and the Bureau of Labor Stats from 1985-Present. To start any query, we first must navigate to the current database. The query for our database is:
+
 use HW3
-Each query also starts with a common line:
-db.macro_labor
-This refers to the collection within the database that we wish to query. In our case, this is the “macro_labor” collection.
+
+From here, we will dive into 10 questions that we can answer with out database, with included Mongosh queries, the expected outputs based on the current database, as well as a detailed explanation of new functionality that this query explores.
 
 Question 1:
 What is the most recent month in the dataset?
 
 Mongosh query:
-db.macro_labor
-| 	.find({}, { _id: 0, date: 1})
+db.macro_labor.find(
+|	{}, { _id: 0, date: 1})
 | 	.sort({ date: -1 })
 | 	.limit(1)
 
@@ -25,7 +25,7 @@ New Functionality Explanation:
 - limit(int): limits number of outputs to “int”.
 
 Question 2:
-Which months had unemployment above 8%?
+Which months had unemployment above 8% (FRED)?
 
 Mongosh query:
 db.macro_labor.find(
@@ -52,7 +52,7 @@ New Functionality Explanation:
 - filter operator ($gt): operator specifies for only documents with value > int.
 
 Question 3:
-What is the average unemployment rate across all recorded months?
+What is the average unemployment rate across all recorded months (FRED)?
 
 Mongosh query:
 db.macro_labor.aggregate([
@@ -72,6 +72,182 @@ New Functionality Explanation:
 - aggregate operator ($group): Groups multiple documents together by specified field
 - _id: null: with a null id given, documents aren’t split into multiple groups but rather all documents are compiled into one group
 - aggregate operator ($avg): computes average of specified field across documents within the group
+
+Question 4:
+Which 10 months have the highest unemployment rate according to the BLS?
+
+Mongosh query:
+db.macro_labor.find(
+|	{ "bls.unemployment_rate_bls": { $ne: null } },
+|	{ _id: 0, date: 1, "bls.unemployment_rate_bls": 1}
+|	)
+|	.sort({ "bls.unemployment_rate_bls": -1 })
+|	.limit(10)
+
+Expected output:
+[
+  { date: '2020-04-01', bls: { unemployment_rate_bls: 14.8 } },
+  { date: '2020-05-01', bls: { unemployment_rate_bls: 13.2 } },
+  { date: '2020-06-01', bls: { unemployment_rate_bls: 11 } },
+  { date: '2020-07-01', bls: { unemployment_rate_bls: 10.2 } },
+  { date: '2009-10-01', bls: { unemployment_rate_bls: 10 } },
+  { date: '2010-04-01', bls: { unemployment_rate_bls: 9.9 } },
+  { date: '2010-03-01', bls: { unemployment_rate_bls: 9.9 } },
+  { date: '2009-12-01', bls: { unemployment_rate_bls: 9.9 } },
+  { date: '2009-11-01', bls: { unemployment_rate_bls: 9.9 } },
+  { date: '2010-11-01', bls: { unemployment_rate_bls: 9.8 } }
+]
+
+New Functionality Explanation:
+- filter operator ($ne): filters out missing values in dataset
+- exploration of new document (bls instead of fred)
+
+Question 5:
+How many months have key data populated for all of our sources?
+
+Mongosh query:
+db.macro_labor.countDocuments({
+| "fred.unemployment_rate": { $ne: null },
+| "bls.unemployment_rate_bls": { $ne: null },
+| "census.total_population": { $ne: null }
+| })
+
+Expected output:
+180 
+
+New Functionality Explanation:
+- countDocuments: allows us to count specific numbers of document based on criteria rather than returning the documents themselves
+- This query explores utilizing multiple filters across multiple documents within the database.
+
+Question 6:
+Which months had either high unemployment (> 8%) or an inverted yield curve (10 year - 2 year spread < 0)? 
+
+Mongosh query:
+db.macro_labor.find(
+|  {
+|  $or: [
+|  { "fred.unemployment_rate": { $gt: 8 } },
+|  { "fred.yield_spread_10y_2y": { $lt: 0 } }
+|  ]
+|  },
+|  { _id: 0, date: 1, "fred.unemployment_rate": 1,
+|  "fred.yield_spread_10y_2y": 1 }
+|  ).sort({ date: 1 }
+|  ).limit(10)
+
+Expected output:
+[
+  {
+    date: '1989-01-01',
+    fred: { unemployment_rate: 5.4, yield_spread_10y_2y: -0.08 }
+  },
+  {
+    date: '1989-02-01',
+    fred: { unemployment_rate: 5.2, yield_spread_10y_2y: -0.2 }
+  },
+  {
+    date: '1989-03-01',
+    fred: { unemployment_rate: 5, yield_spread_10y_2y: -0.32 }
+  },
+  {
+    date: '1989-04-01',
+    fred: { unemployment_rate: 5.2, yield_spread_10y_2y: -0.28 }
+  },
+  {
+    date: '1989-05-01',
+    fred: { unemployment_rate: 5.2, yield_spread_10y_2y: -0.16 }
+  },
+  {
+    date: '1989-06-01',
+    fred: { unemployment_rate: 5.3, yield_spread_10y_2y: -0.13 }
+  },
+  {
+    date: '1989-08-01',
+    fred: { unemployment_rate: 5.2, yield_spread_10y_2y: -0.03 }
+  },
+  {
+    date: '1989-09-01',
+    fred: { unemployment_rate: 5.3, yield_spread_10y_2y: -0.09 }
+  },
+  {
+    date: '1990-03-01',
+    fred: { unemployment_rate: 5.2, yield_spread_10y_2y: -0.04 }
+  },
+  {
+    date: '1998-06-01',
+    fred: { unemployment_rate: 4.5, yield_spread_10y_2y: -0.02 }
+  }
+]
+
+New Functionality Explanation:
+- logical operator ($or): checks for multiple different criteria, matches when either condition is met.
+- allows for examination of multiple fields at once; in our case, viewing times when two different reach a historically bad threshold and seeing how they coincide.
+
+Question 7:
+How did the FRED & BLS unemployment rates differ in 2021?
+
+Mongosh query:
+db.macro_labor.find(
+|  { date: /^2021/ },
+|  { _id: 0, date: 1, "fred.unemployment_rate": 1,
+|  "bls.unemployment_rate_bls": 1 }).sort({ date: 1 })
+
+Expected output (first 10 months):
+[
+  {
+    date: '2021-01-01',
+    fred: { unemployment_rate: 6.4 },
+    bls: { unemployment_rate_bls: 6.4 }
+  },
+  {
+    date: '2021-02-01',
+    fred: { unemployment_rate: 6.2 },
+    bls: { unemployment_rate_bls: 6.2 }
+  },
+  {
+    date: '2021-03-01',
+    fred: { unemployment_rate: 6.1 },
+    bls: { unemployment_rate_bls: 6.1 }
+  },
+  {
+    date: '2021-04-01',
+    fred: { unemployment_rate: 6.1 },
+    bls: { unemployment_rate_bls: 6.1 }
+  },
+  {
+    date: '2021-05-01',
+    fred: { unemployment_rate: 5.8 },
+    bls: { unemployment_rate_bls: 5.8 }
+  },
+  {
+    date: '2021-06-01',
+    fred: { unemployment_rate: 5.9 },
+    bls: { unemployment_rate_bls: 5.9 }
+  },
+  {
+    date: '2021-07-01',
+    fred: { unemployment_rate: 5.4 },
+    bls: { unemployment_rate_bls: 5.4 }
+  },
+  {
+    date: '2021-08-01',
+    fred: { unemployment_rate: 5.1 },
+    bls: { unemployment_rate_bls: 5.1 }
+  },
+  {
+    date: '2021-09-01',
+    fred: { unemployment_rate: 4.7 },
+    bls: { unemployment_rate_bls: 4.7 }
+  },
+  {
+    date: '2021-10-01',
+    fred: { unemployment_rate: 4.5 },
+    bls: { unemployment_rate_bls: 4.5 }
+  }
+]
+
+New Functionality Explanation:
+- regex string filtering (/^str/): allows for data filtering by keywords within strings; in this case, any dates starting with 2021 are filtered; for keywords at start of expression /^str/, for end of expression /str$/, and for anywhere in the expression /str/. Finally, to make sure the match is case-insensitive add an "i" at the end (/str/i).
 
 Question #:
 
