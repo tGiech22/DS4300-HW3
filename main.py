@@ -19,6 +19,8 @@ import sys
 import urllib.request
 from typing import Any, Dict, Tuple
 
+import analysis_api
+
 BASE_URL = os.getenv("API_BASE_URL", "http://127.0.0.1:8000")
 SAMPLE_DATE = os.getenv("SAMPLE_DATE", "2020-04-01")
 
@@ -103,6 +105,23 @@ def main() -> int:
     # 5) POST original to restore
     status, restored = request_json("POST", "/records", original)
     print(f"POST restore {SAMPLE_DATE}: status={status}")
+
+    print("\n-- Analysis API Checks --")
+    high_unemployment = analysis_api.get_high_unemployment_months(threshold=8.0, limit=5)
+    print(f"High unemployment months: {len(high_unemployment)} results")
+    print(json.dumps(high_unemployment, indent=2)[:1200])
+
+    avg_by_decade = analysis_api.get_avg_unemployment_by_decade()
+    print(f"\nAvg unemployment by decade: {len(avg_by_decade)} results")
+    print(json.dumps(avg_by_decade, indent=2)[:1200])
+
+    inversions = analysis_api.get_yield_curve_inversions(limit=5)
+    print(f"\nWorst yield curve inversions: {len(inversions)} results")
+    print(json.dumps(inversions, indent=2)[:1200])
+
+    snapshot = analysis_api.get_monthly_snapshot(year=2020)
+    print(f"\nMonthly snapshot 2020: {len(snapshot)} results")
+    print(json.dumps(snapshot, indent=2)[:1200])
 
     return 0
 
