@@ -249,10 +249,108 @@ Expected output (first 10 months):
 New Functionality Explanation:
 - regex string filtering (/^str/): allows for data filtering by keywords within strings; in this case, any dates starting with 2021 are filtered; for keywords at start of expression /^str/, for end of expression /str$/, and for anywhere in the expression /str/. Finally, to make sure the match is case-insensitive add an "i" at the end (/str/i).
 
-Question #:
+Question 8:
+What are the 10 months with the most negative yield curve (10Y-2Y spread)?
 
 Mongosh query:
+db.macro_labor.find(
+   { "fred.yield_spread_10y_2y": { $lt: 0 } },
+   { _id: 0, date: 1, "fred.yield_spread_10y_2y": 1 }
+).sort({ "fred.yield_spread_10y_2y": 1 }).limit(10)
 
 Expected output:
+[
+  { date: '2023-07-01', fred: { yield_spread_10y_2y: -0.93 } },
+  { date: '2023-06-01', fred: { yield_spread_10y_2y: -0.89 } },
+  { date: '2023-02-01', fred: { yield_spread_10y_2y: -0.79 } },
+  { date: '2023-08-01', fred: { yield_spread_10y_2y: -0.73 } },
+  { date: '2023-01-01', fred: { yield_spread_10y_2y: -0.68 } },
+  { date: '2023-03-01', fred: { yield_spread_10y_2y: -0.58 } },
+  { date: '2023-05-01', fred: { yield_spread_10y_2y: -0.55 } },
+  { date: '2023-04-01', fred: { yield_spread_10y_2y: -0.54 } },
+  { date: '2000-02-01', fred: { yield_spread_10y_2y: -0.52 } },
+  { date: '2000-01-01', fred: { yield_spread_10y_2y: -0.39 } }
+]
 
 New Functionality Explanation:
+- Combines $lt operator with sort ascending to find the most extreme
+  negative values in the dataset
+- Demonstrates filtering on a derived field (yield spread) that captures
+  the difference between two treasury maturities
+- Directly answers our essential question by identifying the worst
+  yield curve stress periods in the dataset
+
+Question 9:
+What is the average CPI by year, sorted by highest inflation years?
+
+Mongosh query:
+db.macro_labor.aggregate([
+   { $match: { "fred.cpi_all_items": { $ne: null } } },
+   { $project: {
+       year: { $substr: ["$date", 0, 4] },
+       cpi: "$fred.cpi_all_items"
+   }},
+   { $group: {
+       _id: "$year",
+       avg_cpi: { $avg: "$cpi" }
+   }},
+   { $sort: { avg_cpi: -1 } },
+   { $limit: 10 }
+])
+
+Expected output:
+[
+  { _id: '2024', avg_cpi: 314.175 },
+  { _id: '2023', avg_cpi: 304.702 },
+  { _id: '2022', avg_cpi: 292.655 },
+  { _id: '2021', avg_cpi: 270.970 },
+  { _id: '2020', avg_cpi: 258.811 },
+  { _id: '2019', avg_cpi: 255.657 },
+  { _id: '2018', avg_cpi: 251.107 },
+  { _id: '2017', avg_cpi: 245.120 },
+  { _id: '2016', avg_cpi: 240.007 },
+  { _id: '2015', avg_cpi: 237.017 }
+]
+
+New Functionality Explanation:
+- $project with $substr: extracts the year from the date string to
+  create a new computed field for grouping
+- $group + $sort combined: groups by computed field then sorts the
+  aggregated result — demonstrates chaining multiple pipeline stages
+- Shows that CPI has risen every single year, with the steepest
+  increases occurring post-2020 reflecting post-COVID inflation
+
+Question 10:
+Show the full monthly snapshot for all sources during the GFC (2008).
+
+Mongosh query:
+db.macro_labor.find(
+   { date: /^2008/ },
+   { _id: 0 }
+).sort({ date: 1 })
+
+Expected output (first 3 months shown):
+[
+  {
+    date: '2008-01-01',
+    fred: { unemployment_rate: 5, cpi_all_items: 211.08,
+            fed_funds_rate: 3.94, yield_spread_10y_2y: 1.63 },
+    bls: { unemployment_rate_bls: 5, total_nonfarm_payrolls: 137861,
+           labor_force_participation_rate: 65.8 },
+    census: { total_population: null, median_household_income: null }
+  },
+  {
+    date: '2008-02-01',
+    fred: { unemployment_rate: 4.9, cpi_all_items: 211.693,
+            fed_funds_rate: 2.98, yield_spread_10y_2y: 1.77 },
+    bls: { unemployment_rate_bls: 4.9, total_nonfarm_payrolls: 137521,
+           labor_force_participation_rate: 65.8 },
+    census: { total_population: null, median_household_income: null }
+  },
+  ...
+]
+
+New Functionality Explanation:
+- Returns complete nested documents across all three sources all at once for a given year
+- Demonstrates querying the full hierarchical document structure, which is MongoDB's advantage over relational DB
+- Using regex date filtering scoped to a specific crisis year shows all macro indicators in one unified view per month 
