@@ -5,16 +5,18 @@ For our Mongo tutorial, we will be exploring the Federal Reserve, Census, and th
 
 use HW3
 
-From here, we will dive into 10 questions that we can answer with out database, with included Mongosh queries, the expected outputs based on the current database, as well as a detailed explanation of new functionality that this query explores.
+From here, we will dive into 10 questions that we can answer with our database, with included Mongosh queries, the expected outputs based on the current database, as well as a detailed explanation of new functionality that this query explores.
+
+
 
 Question 1:
 What is the most recent month in the dataset?
 
 Mongosh query:
 db.macro_labor.find(
-|	{}, { _id: 0, date: 1})
-| 	.sort({ date: -1 })
-| 	.limit(1)
+	{}, { _id: 0, date: 1})
+	.sort({ date: -1 })
+	.limit(1)
 
 Expected output:
 [ { date: '2026-02-01' } ]
@@ -24,16 +26,19 @@ New Functionality Explanation:
 - sort(filter): sorts outputs; “filter”: integer to determine order, 1 = ascending, -1 = descending
 - limit(int): limits number of outputs to “int”.
 
+
+
 Question 2:
 Which months had unemployment above 8% (FRED)?
 
 Mongosh query:
 db.macro_labor.find(
-|   { "fred.unemployment_rate": { $gt: 8 } },
-|   { _id: 0, date: 1, "fred.unemployment_rate": 1 }
-| ).sort({ date: 1 })
+	{ "fred.unemployment_rate": { $gt: 8 } },
+	{ _id: 0, date: 1, "fred.unemployment_rate": 1 })
+	.sort({ date: 1 })
+	.limit(10)
 
-Expected output (first 10 results):
+Expected output:
 [
   { date: '2009-02-01', fred: { unemployment_rate: 8.3 } },
   { date: '2009-03-01', fred: { unemployment_rate: 8.7 } },
@@ -51,18 +56,20 @@ New Functionality Explanation:
 - find filter ”document.field”: accesses a field within a document
 - filter operator ($gt): operator specifies for only documents with value > int.
 
+
+
 Question 3:
 What is the average unemployment rate across all recorded months (FRED)?
 
 Mongosh query:
 db.macro_labor.aggregate([
-|   {
-|     $group: {
-|       _id: null,
-|       avg_unemployment: { $avg: "$fred.unemployment_rate" }
-|     }
-|   }
-| ])
+	{
+	   $group: {
+	      _id: null,
+	      avg_unemployment: { $avg: "$fred.unemployment_rate" }
+  	   }
+	}
+])
 
 Expected output:
 [ { _id: null, avg_unemployment: 5.741056910569106 } ]
@@ -73,16 +80,18 @@ New Functionality Explanation:
 - _id: null: with a null id given, documents aren’t split into multiple groups but rather all documents are compiled into one group
 - aggregate operator ($avg): computes average of specified field across documents within the group
 
+
+
 Question 4:
 Which 10 months have the highest unemployment rate according to the BLS?
 
 Mongosh query:
 db.macro_labor.find(
-|	{ "bls.unemployment_rate_bls": { $ne: null } },
-|	{ _id: 0, date: 1, "bls.unemployment_rate_bls": 1}
-|	)
-|	.sort({ "bls.unemployment_rate_bls": -1 })
-|	.limit(10)
+	{ "bls.unemployment_rate_bls": { $ne: null } },
+	{ _id: 0, date: 1, "bls.unemployment_rate_bls": 1}
+	)
+	.sort({ "bls.unemployment_rate_bls": -1 })
+	.limit(10)
 
 Expected output:
 [
@@ -102,15 +111,17 @@ New Functionality Explanation:
 - filter operator ($ne): filters out missing values in dataset
 - exploration of new document (bls instead of fred)
 
+
+
 Question 5:
 How many months have key data populated for all of our sources?
 
 Mongosh query:
 db.macro_labor.countDocuments({
-| "fred.unemployment_rate": { $ne: null },
-| "bls.unemployment_rate_bls": { $ne: null },
-| "census.total_population": { $ne: null }
-| })
+	"fred.unemployment_rate": { $ne: null },
+	"bls.unemployment_rate_bls": { $ne: null },
+	"census.total_population": { $ne: null }
+	})
 
 Expected output:
 180 
@@ -119,21 +130,23 @@ New Functionality Explanation:
 - countDocuments: allows us to count specific numbers of document based on criteria rather than returning the documents themselves
 - This query explores utilizing multiple filters across multiple documents within the database.
 
+
+
 Question 6:
 Which months had either high unemployment (> 8%) or an inverted yield curve (10 year - 2 year spread < 0)? 
 
 Mongosh query:
 db.macro_labor.find(
-|  {
-|  $or: [
-|  { "fred.unemployment_rate": { $gt: 8 } },
-|  { "fred.yield_spread_10y_2y": { $lt: 0 } }
-|  ]
-|  },
-|  { _id: 0, date: 1, "fred.unemployment_rate": 1,
-|  "fred.yield_spread_10y_2y": 1 }
-|  ).sort({ date: 1 }
-|  ).limit(10)
+	{
+	$or: [
+		{ "fred.unemployment_rate": { $gt: 8 } },
+		{ "fred.yield_spread_10y_2y": { $lt: 0 } }
+	     ]
+	},
+	{ _id: 0, date: 1, "fred.unemployment_rate": 1,
+	"fred.yield_spread_10y_2y": 1 })
+	.sort({ date: 1 })
+	.limit(10)
 
 Expected output:
 [
@@ -183,16 +196,19 @@ New Functionality Explanation:
 - logical operator ($or): checks for multiple different criteria, matches when either condition is met.
 - allows for examination of multiple fields at once; in our case, viewing times when two different reach a historically bad threshold and seeing how they coincide.
 
+
+
 Question 7:
-How did the FRED & BLS unemployment rates differ in 2021?
+How did the FRED & BLS unemployment rates differ in 2021 (first 10 months)?
 
 Mongosh query:
 db.macro_labor.find(
-|  { date: /^2021/ },
-|  { _id: 0, date: 1, "fred.unemployment_rate": 1,
-|  "bls.unemployment_rate_bls": 1 }).sort({ date: 1 })
+	{ date: /^2021/ },
+	{ _id: 0, date: 1, "fred.unemployment_rate": 1,
+	"bls.unemployment_rate_bls": 1 }).sort({ date: 1 })
+	.limit(10)
 
-Expected output (first 10 months):
+Expected output:
 [
   {
     date: '2021-01-01',
@@ -247,9 +263,161 @@ Expected output (first 10 months):
 ]
 
 New Functionality Explanation:
-- regex string filtering (/^str/): allows for data filtering by keywords within strings; in this case, any dates starting with 2021 are filtered; for keywords at start of expression /^str/, for end of expression /str$/, and for anywhere in the expression /str/. Finally, to make sure the match is case-insensitive add an "i" at the end (/str/i).
+- regex string filtering (/^str/): allows for data filtering by keywords within strings; for keywords at start of expression: /^str/, for end of expression: /str$/, and for anywhere in the expression: /str/. Finally, to ensure the match is case-insensitive, add an "i" at the end (/str/i).
 
-Question #:
+
+
+Question 8:
+What is the distribution of historical unemployment rates and what are the respective average labor force participation rates?
+
+Mongosh query:
+db.macro_labor.aggregate([
+	{
+	  $bucketAuto: {
+      	    groupBy: "$fred.unemployment_rate",
+      	    buckets: 5,
+      	    output: {
+        	count: { $sum: 1 },
+        	avg_lfpr: { $avg: "$bls.labor_force_participation_rate" }
+      		    }
+    	      }
+	}
+])
+
+Expected output:
+[
+  {
+    _id: { min: null, max: 4.4 },
+    count: 109,
+    avg_lfpr: 63.814018691588785
+  },
+  {
+    _id: { min: 4.4, max: 5.3 },
+    count: 108,
+    avg_lfpr: 65.38796296296296
+  },
+  { _id: { min: 5.3, max: 6 },
+    count: 104,
+    avg_lfpr: 65.88365384615385 
+  },
+  {
+    _id: { min: 6, max: 7.4 },
+    count: 101,
+    avg_lfpr: 65.15445544554456 
+  },
+  {
+    _id: { min: 7.4, max: 14.8 },
+    count: 72,
+    avg_lfpr: 64.39861111111111
+  }
+]
+
+New Functionality Explanation:
+- aggregation operation ($bucketAuto): Allows you to split data into an even number of "buckets", with ranges and groups defined by the "groupBy" with a specified document field.
+- output: Allows you to define aggregation output computations; in our case, the number of months (documents) and the average labor force participation rate (document field). 
+
+
+
+Question 9:
+Which months had the highest inflation-adjusted median household income 
+
+Mongosh query:
+db.macro_labor.aggregate([
+  {
+    $match: {
+      "census.median_household_income": { $ne: null },
+      "fred.cpi_all_items": { $ne: null }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      date: 1,
+      nominal_income: "$census.median_household_income",
+      cpi: "$fred.cpi_all_items",
+      real_income_cpi_base: {
+        $divide: [
+          "$census.median_household_income",
+          { $divide: ["$fred.cpi_all_items", 100] }
+        ]
+      }
+    }
+  },
+  { $sort: { real_income_cpi_base: -1 } },
+  { $limit: 10 }
+])
+
+Expected output:
+[
+  {
+    date: '2019-01-01',
+    nominal_income: 65712,
+    cpi: 252.561,
+    real_income_cpi_base: 26018.26885386105
+  },
+  {
+    date: '2019-02-01',
+    nominal_income: 65712,
+    cpi: 253.319,
+    real_income_cpi_base: 25940.41504979887
+  },
+  {
+    date: '2019-03-01',
+    nominal_income: 65712,
+    cpi: 254.277,
+    real_income_cpi_base: 25842.68337285716
+  },
+  {
+    date: '2019-06-01',
+    nominal_income: 65712,
+    cpi: 255.213,
+    real_income_cpi_base: 25747.90469137544
+  },
+  {
+    date: '2019-04-01',
+    nominal_income: 65712,
+    cpi: 255.233,
+    real_income_cpi_base: 25745.887091402758
+  },
+  {
+    date: '2019-05-01',
+    nominal_income: 65712,
+    cpi: 255.296,
+    real_income_cpi_base: 25739.533717723738
+  },
+  {
+    date: '2019-07-01',
+    nominal_income: 65712,
+    cpi: 255.802,
+    real_income_cpi_base: 25688.61854090273
+  },
+  {
+    date: '2019-08-01',
+    nominal_income: 65712,
+    cpi: 256.036,
+    real_income_cpi_base: 25665.140839569434
+  },
+  {
+    date: '2019-09-01',
+    nominal_income: 65712,
+    cpi: 256.43,
+    real_income_cpi_base: 25625.706820574815
+  },
+  {
+    date: '2019-10-01',
+    nominal_income: 65712,
+    cpi: 257.155,
+    real_income_cpi_base: 25553.45997550116
+  }
+]
+
+New Functionality Explanation:
+- ($match): Allows for filtering of documents prior to any computation, specifically to remove documents with null fields to avoid issues in computation stage.
+- ($project): Allows for new formatting of documents based on specifications, including breaking into a subset of fields, and adding in computed fields. For our example, this is the "real_income_cpi_base", computed using the "$divide" method within Mongo.
+
+
+Question 10:
+
 
 Mongosh query:
 
