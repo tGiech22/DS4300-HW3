@@ -59,7 +59,7 @@ def create_record(record: Record) -> Record:
     existing = collection.find_one({"date": record.date}, {"_id": 1})
     if existing:
         raise HTTPException(status_code=409, detail="Record with this date already exists")
-    collection.insert_one(record.dict())
+    collection.insert_one(record.model_dump())
     return record
 
 
@@ -67,7 +67,7 @@ def create_record(record: Record) -> Record:
 def update_record(date: str, record: Record) -> Record:
     if date != record.date:
         raise HTTPException(status_code=400, detail="Date in path must match record.date")
-    result = collection.update_one({"date": date}, {"$set": record.dict()})
+    result = collection.update_one({"date": date}, {"$set": record.model_dump()})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Record not found")
     return record
