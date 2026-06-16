@@ -49,10 +49,12 @@ unemployment = []
 fed_funds = []
 
 for d in docs:
+    fred = d.get("fred", {})
+    bls = d.get("bls", {})
     dates.append(d["date"])
-    spread.append(d["fred"].get("yield_spread_10y_2y"))
-    unemployment.append(d["bls"].get("unemployment_rate_bls"))
-    fed_funds.append(d["fred"].get("fed_funds_rate"))
+    spread.append(fred.get("yield_spread_10y_2y"))
+    unemployment.append(bls.get("unemployment_rate_bls"))
+    fed_funds.append(fred.get("fed_funds_rate"))
 
 # --- Step 3: Select periods to shade --- # 
 CRISIS_BANDS = {
@@ -120,7 +122,7 @@ for label, (start, end) in CRISIS_BANDS.items():
     )
 
 # X-axis ticks every 5 years
-tick_dates = [d for d in dates if d[5:] == "01 - 01" and int(d[:4]) % 5 == 0]
+tick_dates = [d for d in dates if d[5:] == "01-01" and int(d[:4]) % 5 == 0]
 ax3.set_xticks(tick_dates)
 ax3.set_xticklabels([d[:4] for d in tick_dates], rotation=45)
 
